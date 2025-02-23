@@ -12,7 +12,7 @@ export default function AboutPage() {
         preload="auto"
         autoPlay
         >
-            <source src="/videos/about.mp4" type="video/mp4" />
+            <source src="/videos/about.mov" type="video/mov" />
             Your browser does not support the video tag.
         </video>
     </div>
