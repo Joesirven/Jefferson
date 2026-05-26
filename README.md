@@ -1,126 +1,135 @@
 # Jefferson
 
-**AI-powered voter simulation engine for predicting real-world political reactions.**
+**AI-powered synthetic voter simulation engine for predicting real-world political reactions.**
 
 Jefferson generates statistically-grounded voter populations, runs them through simulated social interactions and information exposure, and polls them to produce demographically-segmented opinion predictions — all without a single real respondent.
+
+Live demo: **[jefferson-one.vercel.app](https://jefferson-one.vercel.app)**
 
 > Inspired by [Park et al. (2023) — Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442) and [Argyle et al. (2023) — Out of One, Many: Using Language Models to Simulate Human Samples](https://arxiv.org/html/2502.07068v1).
 
 ---
 
-## What it does
-
-1. **Generate a population** — Spin up N voter agents, each with a statistically-correlated demographic profile (age, location, education, income, political leaning, interests) drawn from real demographic distributions.
-
-2. **Run social simulation** — Agents are exposed to topic-relevant social media content and paired for multi-turn conversations. After each interaction, agents update their opinions based on how persuasive they found the exchange.
-
-3. **Poll the population** — Ask any question. Each agent responds in-character based on their demographics, prior opinions, and interaction history. Results are aggregated and cross-tabulated by political leaning, age group, location, and education level.
-
-The result: a synthetic survey that reflects how a demographically-realistic population might respond to a political question — at a fraction of the cost and time of traditional polling.
-
----
-
 ## Why this matters
 
-Traditional polling is slow, expensive, and increasingly inaccurate (response rates have collapsed from ~35% in the 1990s to under 6% today). LLM-based simulation offers a complementary approach — not a replacement for real polling, but a tool for rapid hypothesis testing, message testing, and scenario planning.
+Traditional polling is slow, expensive, and increasingly inaccurate — response rates have collapsed from ~35% in the 1990s to under 6% today. LLM-based simulation offers a complementary approach: not a replacement for real polling, but a tool for rapid hypothesis testing, message testing, and scenario planning.
 
-Jefferson applies this to the political domain with demographically-correlated agent generation, making it more rigorous than generic LLM prompting.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Jefferson                           │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌──────────────┐    ┌──────────────┐                  │
-│  │ master_agent │    │ voter_agent  │                  │
-│  │              │    │              │                  │
-│  │ - Population │───▶│ - Demographics│                  │
-│  │   generation │    │ - Opinion     │                  │
-│  │ - Demographic│    │   memory      │                  │
-│  │   correlations    │ - Interaction │                  │
-│  └──────────────┘    │   tools       │                  │
-│                      └──────────────┘                  │
-│                             │                           │
-│               ┌─────────────┴─────────────┐            │
-│               ▼                           ▼            │
-│      ┌──────────────┐           ┌──────────────┐       │
-│      │  simulation  │           │   polling    │       │
-│      │              │           │              │       │
-│      │ - Twitter     │           │ - Per-agent  │       │
-│      │   exposure    │           │   responses  │       │
-│      │ - Peer        │           │ - Cross-tab  │       │
-│      │   conversations          │   by demo-   │       │
-│      │ - Opinion     │           │   graphics   │       │
-│      │   dynamics    │           │ - Aggregate  │       │
-│      └──────────────┘           │   results    │       │
-│                                 └──────────────┘       │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Core modules
-
-| File | Responsibility |
-|------|---------------|
-| `master_agent.py` | Population generation with demographic correlations (age→political leaning, location→political leaning, education→income) |
-| `voter_agent.py` | Individual voter agent with opinion tools (`remember_interaction`, `get_opinion`) |
-| `simulation.py` | Async simulation engine — Twitter exposure and peer conversation rounds |
-| `polling.py` | Interactive polling with demographic cross-tabulation |
-| `twitter_mock.py` | Topic-relevant social content feed across 16 political topics |
-| `main.py` | Entry point |
-
-### Demographic correlation model
-
-Voter attributes are not independently random — they follow weighted distributions that reflect real-world correlations:
-
-- **Age → Political leaning**: Younger agents skew liberal, older agents skew conservative, matching known generational patterns
-- **Location → Political leaning**: Urban agents skew liberal, rural agents skew conservative
-- **Education → Income**: Higher education levels correlate with higher income bands
-- **Combined**: Political leaning is a weighted average of age-based and location-based distributions, producing more nuanced profiles
-
-### Opinion dynamics
-
-Each agent maintains a persistent opinion store (topic → score, 1–5 scale). Opinions shift through two mechanisms:
-
-1. **Twitter exposure**: Agent reads topic-relevant posts weighted by engagement metrics (likes, retweets), then records an opinion delta (-4 to +4)
-2. **Peer conversation**: Two agents with overlapping interests hold a 3-turn dialogue. Each records how persuasive they found the exchange and updates their opinion accordingly
+Jefferson applies this to the political domain with demographically-correlated agent generation, multi-LLM support, persistent Supabase storage, and Prefect-orchestrated batch simulation across real precinct geographies.
 
 ---
 
-## Quickstart
+## Repository structure
+
+```
+Jefferson/
+├── backend/              ← Python simulation engine (Prefect + Supabase + FastAPI)
+├── web/                  ← Next.js frontend (live at jefferson-one.vercel.app)
+├── docs/archive/
+│   ├── voter_simulation_v1/   ← original Anthropic Agents SDK prototype
+│   └── ai-town-reference/     ← generative agent UI reference (Stanford AI Town fork)
+├── README.md
+└── LICENSE
+```
+
+---
+
+## Backend (`/backend`)
+
+The simulation engine powers the full pipeline: ingest survey data, generate synthetic voter personas, run LLM-driven polls, and orchestrate batch simulations across precincts.
+
+### Technology stack
+
+| Layer | Technology |
+|-------|-----------|
+| Language | Python 3.12+ |
+| Orchestration | Prefect |
+| Persistence | Supabase (Postgres) |
+| API | FastAPI + Uvicorn |
+| CLI | Click |
+| LLM providers | Anthropic (Claude), Google Gemini, ZhipuAI |
+| Web scraping | BeautifulSoup4 |
+| Data | Pydantic, Pandas |
+| Package manager | uv |
+
+### Setup
 
 ```bash
-# Clone and install dependencies
-git clone https://github.com/joesirven/jefferson
-cd jefferson/voter_simulation
-pip install -r requirements.txt
-
-# Run a simulation with 50 voters, 3 rounds
-python main.py
-
-# You'll be prompted to ask polling questions:
-# > Should the federal minimum wage be raised to $20/hour?
-# > How do you feel about the current state of immigration policy?
+cd backend
+cp .env.example .env   # fill in SUPABASE_URL, SUPABASE_ANON_KEY, and at least one LLM key
+uv sync
 ```
+
+### CLI quick reference
+
+```bash
+# Ingest survey data into Supabase
+uv run jefferson ingest survey_data.csv --precincts precinct1 precinct2
+
+# Scrape local news for context-aware responses
+uv run jefferson scrape-news "San Francisco" --hours 48
+
+# Poll a precinct on a question
+uv run jefferson poll precinct_id "What do you think about housing policy?"
+
+# Multiple-choice question
+uv run jefferson poll precinct_id "Should we build more affordable housing?" \
+  --type choice --options "Yes" "No" "Unsure"
+
+# Run a full batch simulation across precincts
+uv run jefferson simulate precinct1 precinct2 \
+  --questions "How will you vote on Prop A?" "What's your top priority?" \
+  --iterations 3 --concurrent 50
+
+# List recent simulations
+uv run jefferson list-sims --limit 10
+
+# Interactive polling session
+uv run jefferson interactive-poll precinct_id
+```
+
+### Backend structure
+
+```
+backend/src/
+├── cli.py              # Click commands
+├── api/main.py         # FastAPI app
+├── flows/
+│   ├── ingestion.py    # Prefect ingestion pipelines
+│   └── simulation.py   # Prefect simulation workflows
+├── models/persona.py   # Pydantic persona model
+└── tasks/
+    ├── database.py     # Supabase queries
+    ├── llm.py          # Multi-LLM client management
+    └── news.py         # News scraping
+```
+
+---
+
+## Frontend (`/web`)
+
+Next.js app deployed to [jefferson-one.vercel.app](https://jefferson-one.vercel.app).
+
+```bash
+cd web
+npm install
+npm run dev    # http://localhost:3000
+```
+
+---
+
+## How the simulation works
+
+1. **Generate a population** — Spin up N voter agents, each with a statistically-correlated demographic profile (age, location, education, income, political leaning) drawn from real precinct survey data or synthetic distributions.
+
+2. **Add news context** — Scrape local news and inject it into agent context so responses reflect current events in the simulated geography.
+
+3. **Run polls** — Ask any question (open-ended, multiple choice, or scale). Each agent responds in-character based on their demographics, prior opinions, and news context. Results are aggregated and cross-tabulated by political leaning, age group, location, and education level.
 
 ### Example output
 
 ```
 === POLLING RESULTS ===
 Question: Should the federal government implement universal healthcare?
-
-Voter: James (67, Male, Conservative)
-  Education: High School | Income: Middle | Location: Rural
-  Score: 2/5 — "Government healthcare would reduce my choices..."
-
-Voter: Jennifer (28, Female, Very Liberal)
-  Education: Graduate Degree | Income: Upper Middle | Location: Urban
-  Score: 5/5 — "Healthcare is a fundamental right..."
-
-Average score: 3.12/5
 
 By political leaning:
   Very Liberal:      4.6/5 (8 voters)
@@ -138,22 +147,33 @@ By age group:
 
 ---
 
-## Roadmap
+## Environment variables
 
-- [ ] **FastAPI web layer** — REST API exposing simulation runs and polling endpoints
-- [ ] **PostgreSQL persistence** — Store agent populations, conversation logs, and poll results
-- [ ] **Real-time frontend** — Hybrid map visualization + live polling dashboard (inspired by Stanford Generative Agents UI)
-- [ ] **ACS demographic seeding** — Replace synthetic demographics with distributions derived from real Census data for a specified geography
-- [ ] **Polymarket integration** — Live prediction market data as an additional signal source for agent opinion formation
-- [ ] **Airflow orchestration** — Scheduled simulation runs with automated polling report generation
+Create `backend/.env` (copy from `backend/.env.example`):
+
+```bash
+# Supabase
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# LLM providers (at least one required)
+ANTHROPIC_API_KEY=your_key
+GOOGLE_API_KEY=your_key
+ZHIPUAI_API_KEY=your_key
+
+# Optional
+PREFECT_SERVER_ANALYTICS_ENABLED=false
+DO_NOT_TRACK=1
+```
 
 ---
 
-## Tech stack
+## Archive (`/docs/archive`)
 
-**Simulation**: Python · Anthropic Agents SDK · Pydantic · asyncio
-
-**Coming**: FastAPI · PostgreSQL · Redis · Next.js · Docker
+| Directory | What it is |
+|-----------|-----------|
+| `voter_simulation_v1/` | Original prototype using the Anthropic Agents SDK — simple async simulation without persistence or orchestration |
+| `ai-town-reference/` | Fork of the Stanford AI Town generative-agent UI (Convex + Vite) — kept as a reference for real-time agent visualization patterns |
 
 ---
 
