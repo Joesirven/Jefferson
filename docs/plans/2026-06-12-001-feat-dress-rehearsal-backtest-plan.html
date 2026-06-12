@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>feat: Wake County dress-rehearsal backtest with experiment tracking</title>
+<style>
+:root{--bg:#fbfaf7;--ink:#1f2421;--muted:#5d645f;--line:#ddd8cd;--card:#ffffff;--accent:#0f6e56;--accent-soft:#e1f5ee;--warn:#854f0b;--warn-soft:#faeeda;--fail:#a32d2d;--fail-soft:#fcebeb;--info:#185fa5;--info-soft:#e6f1fb;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.page{max-width:920px;margin-inline:auto;padding:2.5rem 1.5rem 4rem}
+p,li,dd{max-width:72ch}
+h1{font-size:1.7rem;line-height:1.25;margin:.2rem 0 .4rem}
+h2{font-size:1.25rem;margin:2.6rem 0 .8rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+h3{font-size:1.02rem;margin:1.4rem 0 .4rem}
+code{font-family:var(--mono);font-size:.86em;background:#f0ede4;padding:.1em .35em;border-radius:4px}
+a{color:var(--info)}
+.eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem 1.6rem;font-size:.86rem;color:var(--muted);margin:.4rem 0 1rem}
+.meta b{color:var(--ink);font-weight:600}
+.stats{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.5rem .9rem;font-size:.84rem}
+.stat b{display:block;font-size:1.05rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem;margin:.6rem 0 1rem}
+th,td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f3f0e8;font-weight:600}
+.chip{display:inline-block;border-radius:999px;padding:.05rem .6rem;font-size:.74rem;font-weight:600}
+.ok{background:var(--accent-soft);color:var(--accent)}
+.bad{background:var(--fail-soft);color:var(--fail)}
+.chg{background:var(--warn-soft);color:var(--warn)}
+.inf{background:var(--info-soft);color:var(--info)}
+article.unit{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1rem 1.2rem;margin:.9rem 0}
+article.unit h3{margin:.1rem 0 .5rem}
+.idchip{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:8px;font-family:var(--mono);font-size:.8rem;font-weight:700;padding:.1rem .5rem;margin-right:.5rem}
+dl.strip{display:grid;grid-template-columns:max-content 1fr;gap:.2rem .9rem;margin:.4rem 0;font-size:.88rem}
+dl.strip dt{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:.15rem}
+dl.strip dd{margin:0}
+details{margin:.4rem 0;border-top:1px dashed var(--line);padding-top:.35rem}
+summary{cursor:pointer;font-size:.84rem;font-weight:600;color:var(--muted)}
+.callout{border-radius:10px;padding:.7rem 1rem;margin:.8rem 0;font-size:.92rem}
+.callout .eyebrow{display:block;margin-bottom:.2rem}
+.c-warn{background:var(--warn-soft)}.c-warn .eyebrow{color:var(--warn)}
+.c-fail{background:var(--fail-soft)}.c-fail .eyebrow{color:var(--fail)}
+.c-ok{background:var(--accent-soft)}.c-ok .eyebrow{color:var(--accent)}
+.c-info{background:var(--info-soft)}.c-info .eyebrow{color:var(--info)}
+.ktd{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.7rem 1rem;margin:.6rem 0;font-size:.93rem}
+nav.toc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.8rem 1.2rem;font-size:.88rem}
+nav.toc ul{margin:.3rem 0;padding-left:1.1rem}
+footer.composition-signal{margin-top:3rem;border-top:1px solid var(--line);padding-top:.8rem;font-size:.8rem;color:var(--muted)}
+ul.subnav{font-size:.84rem;columns:2}
+</style>
+</head>
+<body><div class="page">
+
+<span class="eyebrow">Implementation plan · Jefferson</span>
+<h1>feat: Wake County dress-rehearsal backtest with experiment tracking</h1>
+<div class="meta">
+<span>type <b>feat</b></span>
+<span>date <b><time datetime="2026-06-12">2026-06-12</time></b></span>
+<span>revision <b>r2 — hardened</b> (5-persona review + 6 live assumption experiments integrated)</span>
+</div>
+<div class="meta">
+<span>origin <b><code>docs/brainstorms/2026-06-10-jefferson-architecture-rethink-requirements.md</code></b></span>
+<span>companion origin <b><code>docs/brainstorms/2026-06-11-experiment-success-determinants-requirements.md</code></b></span>
+</div>
+
+<div class="stats">
+<div class="stat"><b>6</b>assumption experiments run live</div>
+<div class="stat"><b>20</b>requirements (R1–R20)</div>
+<div class="stat"><b>9</b>implementation units</div>
+<div class="stat"><b>4</b>hard gates G1–G4</div>
+<div class="stat"><b>&lt;$5</b>full-loop LLM budget</div>
+<div class="stat"><b>2,022 / 527</b>verified ground truth (Biden/Trump, precinct 01-07)</div>
+</div>
+
+<nav class="toc"><span class="eyebrow">Contents</span>
+<ul>
+<li><a href="#summary">Summary</a> · <a href="#problem-frame">Problem Frame</a></li>
+<li><a href="#experiments">Assumption Experiments</a> — what was tested live and what failed</li>
+<li><a href="#htd">High-Level Technical Design</a> · <a href="#requirements">Requirements</a> · <a href="#ktd">Key Technical Decisions</a></li>
+<li><a href="#standards">Determinants, Gates &amp; Standards</a></li>
+<li><a href="#units">Implementation Units</a> · <a href="#executor">Executor Contract</a></li>
+<li><a href="#scope">Scope Boundaries</a> · <a href="#risks">Risks &amp; Dependencies</a> · <a href="#sources">Sources &amp; Research</a></li>
+</ul>
+</nav>
+
+<section id="summary">
+<h2>Summary</h2>
+<p>Build and run Jefferson's first validation experiment: a static backtest of Wake County NC precinct 01-07 against its certified Nov-2020 result, executed as an iterate-until-pass loop governed by success determinants D1–D5, with an experiment tracker and monitoring dashboard built before any LLM spend. The pipeline runs on the ba-sing-se VPS with DuckDB as the warehouse. This revision is hardened: six assumptions were tested live (one failed — no inference API key exists; one changed the design — the certified precinct file is election-day-only, so ground truth moves to the precinct-sorted file), and every fallback in this document is grounded in an observed result, not a guess. The plan is written for handoff: a cheaper executor agent implements, tests, and loops; all judgment calls are pre-made here or routed to escalation.</p>
+</section>
+
+<section id="problem-frame">
+<h2>Problem Frame</h2>
+<p>The architecture rethink (T9) ruled that the cheapest decisive experiment — can prompted off-the-shelf AI voters reproduce one known election result? — runs before any training, replay, or planner work. Competitor research showed the loop form needs hard stop conditions and an anti-overfitting holdout rule; a five-persona document review then found the protocol holes (memorization leakage, holdout retakes, luck-passes) that this revision closes. The backend code is broken (malformed packaging, mangled LLM client), the VPS has no toolchain, and the prior handoff agent advanced only website/taste work — so this plan assumes a cold start by its executor.</p>
+</section>
+
+<section id="experiments">
+<h2>Assumption Experiments</h2>
+<p>Run 2026-06-12 from the orchestrator session, before handoff. Each row cites what was actually observed. These results are binding inputs to the units below — the executor does not re-litigate them, but does re-verify E1's resolution at G3.</p>
+<table>
+<tr><th>ID</th><th>Assumption tested</th><th>Result</th><th>Observed evidence</th><th>Consequence</th></tr>
+<tr id="e1"><td>E1</td><td>A DeepInfra API key exists in the environment</td><td><span class="chip bad">FAILED</span></td><td>No <code>DEEPINFRA*</code> variable in shell env, no <code>~/.config/jefferson/</code>, nothing in <code>backend/.env*</code></td><td>Inference fallback chain activated (see KTD-2). Jose-owed: create key, or executor verifies fal.ai fallback. Hard block for U6, not for U1–U5.</td></tr>
+<tr id="e2"><td>E2</td><td>Practice precinct 01-07 exists in the 2020 results</td><td><span class="chip ok">VERIFIED</span></td><td>298 Wake precincts in <code>results_pct_20201103.txt</code>; 01-07 present — and a sibling <code>01-07A</code> exists (join trap: exact-match precinct codes, never prefix-match)</td><td>G1 keeps the exact-match rule; 01-07A documented.</td></tr>
+<tr id="e3"><td>E3</td><td><code>results_pct</code> precinct rows carry the precinct's full certified result</td><td><span class="chip chg">DESIGN CHANGED</span></td><td>01-07 presidential rows sum to ~293 votes; 357,920 of Wake's 393,336 Biden votes (91%) sit in county-wide <code>ABSEN/OSAB/OSAP</code> pseudo-precinct rows. Precinct rows are election-day-only — a small, Republican-skewed slice.</td><td>Ground truth moves to <code>results_precinct_sort/WAKE_PRECINCT_SORT.txt</code> (all methods re-sorted to home precincts). Verified for 01-07: <b>Biden 2,022 · Trump 527 · Jorgensen 37</b> (≈2,605 presidential votes — consistent with a 2.5–4k-registrant precinct). See KTD-1.</td></tr>
+<tr id="e4"><td>E4</td><td>The data files parse with standard text tools</td><td><span class="chip chg">GOTCHAS FOUND</span></td><td>The precinct-sort file contains NUL bytes (grep/awk silently fail until <code>tr -d '\000'</code>) and space-padded char fields; the layout header itself states statistical noise is added per NC GS §163-132.5G; the VR snapshot is UTF-16LE</td><td>U3 specifies NUL-strip + field-trim + streaming UTF-16 conversion; scoring treats ground truth as carrying a small noise band (see KTD-1).</td></tr>
+<tr id="e5"><td>E5</td><td>The VPS can host the pipeline</td><td><span class="chip ok">VERIFIED</span></td><td>50 GB disk free; ~2.4–2.5 GB RAM available but swap fully consumed; system Python 3.10.12; no <code>uv</code>/<code>duckdb</code> installed; no sudo</td><td>U1 bootstraps a user-space <code>uv</code> toolchain with its own Python 3.12; DuckDB <code>memory_limit</code> capped at 1 GB; filter-before-join mandatory.</td></tr>
+<tr id="e6"><td>E6</td><td>The practice precinct exercises all determinants</td><td><span class="chip chg">FLAGGED</span></td><td>01-07 is a 79/21 Biden blowout — easy to "pass" from model memory, and the split-ticket determinant (D4) is likely vacuous there</td><td>G1 additionally reports the gubernatorial margin; holdout selection must include one competitive precinct (margin &lt;15 pts); D4 is re-operationalized as margin-delta (see Standards).</td></tr>
+</table>
+</section>
+
+<section id="htd">
+<h2>High-Level Technical Design</h2>
+<p>The pipeline is a gated, linear flow with one tuning loop and one terminal exam. Every poll→score cycle writes a tracker record. The loop's only exits: all determinants pass (and replicate, and survive the holdout exam), the budget ceiling is hit, or a human stops it.</p>
+<svg viewBox="0 0 880 560" role="img" style="width:100%;max-width:880px" xmlns="http://www.w3.org/2000/svg">
+<title>Pipeline flow with gates</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#5d645f" stroke-width="1.6"/></marker></defs>
+<g font-family="-apple-system,sans-serif" font-size="13">
+<rect x="40" y="20" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="155" y="46" text-anchor="middle">U2 · registry rows in vault</text>
+<line x1="155" y1="64" x2="155" y2="88" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="90" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="155" y="116" text-anchor="middle">U3 · ingest → DuckDB</text>
+<line x1="155" y1="134" x2="155" y2="158" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="160" width="230" height="44" rx="8" fill="#faeeda" stroke="#e8d9b8"/><text x="155" y="186" text-anchor="middle" fill="#854f0b">G1 · precinct reconciliation</text>
+<line x1="155" y1="204" x2="155" y2="228" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="230" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="155" y="248" text-anchor="middle">Seal 2 holdouts</text><text x="155" y="264" text-anchor="middle" font-size="11" fill="#5d645f">incl. one competitive precinct</text>
+<line x1="155" y1="274" x2="155" y2="298" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="300" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="155" y="326" text-anchor="middle">U5 · synthesize 300 personas</text>
+<line x1="155" y1="344" x2="155" y2="368" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="370" width="230" height="44" rx="8" fill="#faeeda" stroke="#e8d9b8"/><text x="155" y="396" text-anchor="middle" fill="#854f0b">G2 · marginals ≤ 5pp</text>
+<line x1="155" y1="414" x2="155" y2="438" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="40" y="440" width="230" height="44" rx="8" fill="#faeeda" stroke="#e8d9b8"/><text x="155" y="458" text-anchor="middle" fill="#854f0b">G3 · smoke poll 10×2</text><text x="155" y="474" text-anchor="middle" font-size="11" fill="#854f0b">parse ≥95% · cost projection OK</text>
+<line x1="270" y1="462" x2="330" y2="462" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="440" width="230" height="44" rx="8" fill="#e6f1fb" stroke="#b5d4f4"/><text x="447" y="458" text-anchor="middle" fill="#185fa5">U6 · full poll 300×5</text><text x="447" y="474" text-anchor="middle" font-size="11" fill="#185fa5">→ U7 · score D1–D4 vs truth</text>
+<line x1="447" y1="438" x2="447" y2="414" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="370" width="230" height="44" rx="8" fill="#faeeda" stroke="#e8d9b8"/><text x="447" y="396" text-anchor="middle" fill="#854f0b">G4 · determinants pass?</text>
+<path d="M 562 392 H 640 V 462 H 564" fill="none" stroke="#a32d2d" marker-end="url(#ah)"/>
+<text x="652" y="430" font-size="11" fill="#a32d2d">no → tweak (practice</text><text x="652" y="444" font-size="11" fill="#a32d2d">precinct only) → re-poll</text>
+<line x1="447" y1="368" x2="447" y2="344" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="300" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="447" y="318" text-anchor="middle">Replicate with fresh seed</text><text x="447" y="334" text-anchor="middle" font-size="11" fill="#5d645f">pass must happen twice (R20)</text>
+<line x1="447" y1="298" x2="447" y2="274" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="230" width="230" height="44" rx="8" fill="#f3f0e8" stroke="#ddd8cd"/><text x="447" y="248" text-anchor="middle">FREEZE · tagged commit</text><text x="447" y="264" text-anchor="middle" font-size="11" fill="#5d645f">+ geography-masked diagnostic (R18)</text>
+<line x1="447" y1="228" x2="447" y2="204" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="160" width="230" height="44" rx="8" fill="#faeeda" stroke="#e8d9b8"/><text x="447" y="186" text-anchor="middle" fill="#854f0b">D5 · holdout exam, unchanged</text>
+<line x1="447" y1="158" x2="447" y2="134" stroke="#5d645f" marker-end="url(#ah)"/>
+<rect x="332" y="90" width="230" height="44" rx="8" fill="#e1f5ee" stroke="#9fe1cb"/><text x="447" y="108" text-anchor="middle" fill="#0f6e56">Results doc + gap interpretation</text><text x="447" y="124" text-anchor="middle" font-size="11" fill="#0f6e56">claims scoped within-county, within-cycle</text>
+<path d="M 562 182 H 700 V 530 H 155 V 488" fill="none" stroke="#a32d2d" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<text x="320" y="504" font-size="11" fill="#a32d2d">D5 fail → burn holdouts, seal 2 fresh</text>
+<text x="320" y="518" font-size="11" fill="#a32d2d">(max 2 burns, then experiment = failed) → tweak</text>
+</g>
+</svg>
+</section>
+
+<section id="requirements">
+<h2>Requirements</h2>
+<h3>Pipeline</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td id="r1">R1.</td><td>One command in <code>backend/</code> runs the full backtest end to end on the ba-sing-se VPS, in jose-owned paths, no sudo.</td></tr>
+<tr><td id="r2">R2.</td><td>DuckDB is the warehouse; the existing Supabase persistence is bypassed, not refactored.</td></tr>
+<tr><td id="r3">R3.</td><td>Every dataset has a vault data-registry row (license, PII, provenance, storage — including NC's commercial-use prohibition) before download.</td></tr>
+<tr><td id="r4">R4.</td><td>The raw statewide voter file is deleted after the Wake filter (logged step, post-deletion assertion in G1); no name, address, or phone ever enters a prompt, a warehouse output, or the vault.</td></tr>
+<tr><td id="r5">R5.</td><td>Poll prompts anchor the persona to November 2, 2020; no live news or post-2020 context is injected.</td></tr>
+</table>
+<h3>Tracking layer (built before LLM spend)</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td id="r6">R6.</td><td>Every experiment run writes one record: run id, timestamp, git commit, prompt hash plus full prompt diff vs the previous run, model id, sample count, cost, all D1–D4 metric values, per-determinant pass/fail, notes.</td></tr>
+<tr><td id="r7">R7.</td><td>A monitoring dashboard shows run history, metric trends across iterations, per-determinant status, and cumulative spend; design referenced against Mobbin metric-dashboard patterns; reachable only via SSH tunnel or localhost — never publicly served.</td></tr>
+<tr><td id="r8">R8.</td><td>The tracker and dashboard are operational before the first LLM-spending run.</td></tr>
+<tr><td id="r9">R9.</td><td>The run-record schema is experiment-generic via a JSON overflow column; future experiments reuse the record shape without migration.</td></tr>
+</table>
+<h3>Determinants and loop protocol</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td id="r10">R10.</td><td>The loop's stop condition is the D1–D5 determinant set (see Standards below) — absolute thresholds AND beating both baselines.</td></tr>
+<tr><td id="r11">R11.</td><td>The loop tunes only on the practice precinct; the two sealed holdout precincts are never read, scored, or referenced until the pipeline is frozen.</td></tr>
+<tr><td id="r12">R12.</td><td>Each iteration has a spend cap; the loop has a cumulative budget ceiling (env-configured, default $10); hitting it stops the loop regardless of score.</td></tr>
+<tr><td id="r13">R13.</td><td>Threshold changes after the loop starts require an ADR — the loop cannot move its own goalposts.</td></tr>
+<tr><td id="r17">R17.</td><td>Geographic cues in prompts are fixed before the loop starts; tuning cannot add or alter place hints (extends R13's ADR rule to prompt geography).</td></tr>
+<tr><td id="r18">R18.</td><td>A geography-masked diagnostic run (place names replaced with neutral descriptors) executes at freeze alongside the holdout exam and is reported in the results doc; informational, not pass/fail.</td></tr>
+<tr><td id="r19">R19.</td><td>A failed holdout exam reclassifies those precincts as practice data; two fresh holdouts are drawn and sealed; after two burned pairs the experiment is declared failed.</td></tr>
+<tr><td id="r20">R20.</td><td>The persona cohort seed is pinned across iterations (changes logged with rationale); a practice-precinct pass must replicate once with a fresh sampling seed before freeze.</td></tr>
+</table>
+<h3>Vault artifacts</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td id="r14">R14.</td><td>Four ADR drafts land in the vault for Jose's signature: <code>ADR-004</code> build-sequence amendment (v1 = snapshot + brute-force planner + replay-data prep; determinants as stop condition), <code>ADR-005</code> planner Plan A (cached strategist + live check hybrid), <code>ADR-006</code> analytics-agent foundation (skills-over-semantic-layer), and an ADR-003 amendment (model/provider swap per KTD-2 resolution).</td></tr>
+<tr><td id="r15">R15.</td><td>Research artifacts land per vault templates: GenMinds/RECAP (commentary thread folded in), QGF, the sentiment-keystone research brief, and a competitive-landscape update (SimSurveys, Aaru, Simile, Expected Parrot, Viewpoints, Verasight benchmarks).</td></tr>
+<tr><td id="r16">R16.</td><td>The experiment produces a results doc with the measured gap, its interpretation, the masked-run comparison, the count of holdout exams taken, the ground-truth noise caveat, and links to tracker run records; any claim derived from it is scoped as within-county, within-cycle validation.</td></tr>
+</table>
+</section>
+
+<section id="ktd">
+<h2>Key Technical Decisions</h2>
+<div class="ktd" id="ktd1"><b>KTD-1 · Ground truth = the precinct-sorted results file, with a declared noise band.</b> E3 proved the certified <code>results_pct</code> precinct rows are election-day-only (~9% of votes, Republican-skewed). Primary truth is <code>results_precinct_sort/WAKE_PRECINCT_SORT.txt</code>, where all voting methods are re-sorted to home precincts (verified 01-07: Biden 2,022 / Trump 527). Its own header declares deliberate statistical noise (NC GS §163-132.5G); at ~2,600 votes the noise is small relative to the 4-pt threshold, but scoring records it as a ground-truth uncertainty band and cross-checks county totals against <code>results_pct</code> and MEDSL.</div>
+<div class="ktd" id="ktd2"><b>KTD-2 · Inference fallback chain (E1 failed — no key exists).</b> In order: (1) Jose creates a DeepInfra key (ADR-003 standing choice; <code>Qwen/Qwen3-14B</code>, $0.12/M in, $0.24/M out — Qwen3-8B is no longer served, hence the ADR-003 amendment); (2) fal.ai with the existing <code>FAL_KEY</code> if it serves a Qwen3-class open-weight instruct model with JSON output (executor verifies via fal's model search before use; if used, the ADR-003 amendment names it); (3) any OpenAI-compatible serverless host serving Qwen3-14B. Whatever resolves must pass G3's smoke test. Self-hosting on the VPS is not an option (no GPU), and switching providers does not change what the model memorized — see the leakage risk.</div>
+<div class="ktd" id="ktd3"><b>KTD-3 · Fresh async OpenAI-compatible client; quarantine the legacy code.</b> <code>src/tasks/llm.py</code> is unrepairable (missing class statement, absent imports, sync-in-async). The <code>LLMClient</code> ABC + provider-factory pattern survives in a new module. Prefect-era modules and stale tests move to <code>backend/legacy/</code> so <code>uv run pytest</code> can pass clean.</div>
+<div class="ktd" id="ktd4"><b>KTD-4 · Streaming UTF-16 conversion, Wake-only parquet, delete raw.</b> <code>unzip -p | iconv -f UTF-16LE -t UTF-8</code> so the UTF-16 intermediate never hits disk (the unpacked file is likely 10–15 GB, not the 3–5 first estimated); explicit kept-column list (no name/address/phone); deletion is a logged step asserted in G1. DuckDB <code>memory_limit</code> ≈ 1 GB and <code>temp_directory</code> in a jose-owned path (E5: ~2.4 GB available RAM, swap exhausted). The precinct-sort file additionally needs <code>tr -d '\000'</code> and trailing-space field trims (E4).</div>
+<div class="ktd" id="ktd5"><b>KTD-5 · Collapsed subgroup reporting.</b> One-way margins (party, race, age, sex) plus a party×race two-way; the spec's four-way grid is statistically empty at n=300. The cell list is locked at G4's cell audit before scoring. NCSBE <code>race_code</code> (incl. ~10–15% Undesignated) + <code>ethnic_code</code> and party <code>UNA</code> get first-class buckets.</div>
+<div class="ktd" id="ktd6"><b>KTD-6 · Turnout oracle with attrition gate.</b> Individual voter history (<code>ncvhis92</code>) is the oracle only if its 2020 ballot count for the precinct is within 5% of certified ballots cast; otherwise auto-downgrade to precinct-aggregate turnout. The current-roll file silently loses voters who moved or died since 2020.</div>
+<div class="ktd" id="ktd7"><b>KTD-7 · Resume-safe polling.</b> Personas persisted to parquet pre-polling with stable <code>persona_idx</code>; every response keyed (persona, sample, question) and appended to JSONL; resume replays missing tuples; per-persona sample counts must be equal or the run is flagged. Structured output: thinking mode disabled, JSON response format, enum-constrained choices including "don't know", ≤2 retries, hard call ceiling.</div>
+<div class="ktd" id="ktd8"><b>KTD-8 · Analytics foundation = skills-over-semantic-layer, minimal v1 tonight.</b> Scoring metrics are defined as named DuckDB views with co-located markdown doc files — the Anthropic internal pattern adapted to vault + Meadow + Claude Code (ruled by Jose; OpenAI's standalone-agent/embedding-index pattern rejected for a solo operator). The scorer consumes these views, so the foundation serves the pipeline from day one. Recorded as proposed ADR-006.</div>
+<div class="ktd" id="ktd9"><b>KTD-9 · Holdouts sealed early, in a committed config.</b> Two Wake precincts chosen during U3 — one suburban/rural per ADR-001, one competitive (presidential margin &lt; 15 pts, per E6) — written to <code>backend/data/config/holdouts.json</code>, ingested by the tracker, excluded from every loop query until FREEZE.</div>
+</section>
+
+<section id="standards">
+<h2>Determinants, Gates &amp; Standards</h2>
+<h3>Success determinants (the loop's stop condition)</h3>
+<table>
+<tr><th>ID</th><th>Determinant</th><th>Threshold</th><th>Source of the number</th></tr>
+<tr><td>D1</td><td>Headline accuracy</td><td>Two-party vote-share error ≤ 4 pts on practice precinct (≤ 6 on holdouts) AND beats both baselines (uniform swing from 2016; demographics-only logit on CES NC). The deferred frontier-API run is a supplemental comparison, not a baseline.</td><td>Industry best published: ~4 pts (Verasight 2025)</td></tr>
+<tr><td>D2</td><td>Subgroup honesty</td><td>Weighted-mean subgroup error ≤ 8 pts; no single group worse than 12 (collapsed cells per KTD-5)</td><td>Verasight's published subgroup bar: 8 pts</td></tr>
+<tr><td>D3</td><td>Distribution honesty</td><td>"Don't know / undecided" present and within 2× the CES NC rate; response variance ≥ half CES variance — decomposed into within-persona (across 5 samples) and across-persona components so CES-seeded conditioning can't masquerade as model honesty</td><td>Kills the zero-uncertainty and variance-collapse failure modes (Verasight; Li et al. 2025)</td></tr>
+<tr><td>D4</td><td>Structure</td><td>Gubernatorial-minus-presidential margin delta within 5 pts of certified, per precinct (re-operationalized per E6 — direction alone is vacuous in a 79/21 precinct)</td><td>The precinct's signature; misses mean wrong mechanism</td></tr>
+<tr><td>D5</td><td>Generalization</td><td>D1–D4 hold at holdout thresholds on ≥2 untouched precincts, zero pipeline changes, after a fresh-seed replication of the practice pass</td><td>The closed-book exam — required for overall pass (ruled 2026-06-12)</td></tr>
+</table>
+<h3>Gates (hard stops — the executor may not proceed through a failed gate)</h3>
+<table>
+<tr><th>Gate</th><th>Check</th><th>On failure</th></tr>
+<tr><td>G1</td><td>Practice precinct exists with 2.5–4k registrants; snapshot/results/history counts reconcile (exact precinct-code match — <code>01-07A</code> is a different precinct); attrition check decides turnout oracle; raw statewide file confirmed deleted; gubernatorial margin reported</td><td>Fallback criteria in ADR-001; structural Wake failure → Mecklenburg-2024 escape hatch (a different experiment — stop and escalate)</td></tr>
+<tr><td>G2</td><td>Persona marginals within 5pp of voter-file marginals on every one-way margin</td><td>Re-synthesize (seeded); 3 consecutive failures → escalate</td></tr>
+<tr><td>G3</td><td>10 personas × 2 samples: JSON parse ≥ 95%, projected full-run cost within cap, provider resolved per KTD-2</td><td>Fix client/prompts and retry; provider unresolved → blocked-on-Jose, stop</td></tr>
+<tr><td>G4</td><td>Cell audit locks the scoreable subgroup list (n≥20) before scoring; then determinant evaluation</td><td>Fail → tweak (practice precinct only) → re-poll; budget ceiling enforced</td></tr>
+</table>
+<h3>Standards the executor holds to</h3>
+<ul>
+<li><b>Evidence standard:</b> no claim without a tracker run record; every number in the results doc links to the run that produced it.</li>
+<li><b>Code standard:</b> plain asyncio (no Prefect), <code>src.</code>-rooted imports, pytest green before any VPS deploy, type-validated structured outputs.</li>
+<li><b>Privacy standard:</b> R4 absolute; parquet extracts carry an NCSBE-restriction notice; prompts contain zero voter-identifying data.</li>
+<li><b>Loop standard:</b> R11/R17/R19/R20 are mechanical rules, not judgment calls; prompt diffs recorded every iteration; gates never softened under time pressure — a gate judgment made under pressure is itself a tracked record.</li>
+<li><b>Claim standard:</b> nothing is called "validated" except a D5 pass, and only with the within-county, within-cycle scope attached.</li>
+</ul>
+</section>
+
+<section id="units">
+<h2>Implementation Units</h2>
+<ul class="subnav">
+<li><a href="#u1">U1 · packaging + inference client</a></li>
+<li><a href="#u2">U2 · vault registry rows</a></li>
+<li><a href="#u3">U3 · ingest, reconciliation, holdouts</a></li>
+<li><a href="#u4">U4 · tracker + dashboard</a></li>
+<li><a href="#u5">U5 · persona synthesis</a></li>
+<li><a href="#u6">U6 · polling engine</a></li>
+<li><a href="#u7">U7 · scoring + determinants</a></li>
+<li><a href="#u8">U8 · vault knowledge artifacts</a></li>
+<li><a href="#u9">U9 · orchestration, loop, holdout exam</a></li>
+</ul>
+
+<article class="unit" id="u1"><h3><span class="idchip">U1</span>Repair backend packaging and build the inference client</h3>
+<dl class="strip">
+<dt>Goal</dt><dd><code>uv sync</code> works on a fresh clone and on the VPS; a tested async client exists for whichever provider KTD-2 resolves.</dd>
+<dt>Requirements</dt><dd>R1 (precondition), R5, R12</dd>
+<dt>Dependencies</dt><dd>none</dd>
+<dt>Files</dt><dd><code>backend/pyproject.toml</code>, <code>backend/uv.lock</code>, <code>backend/src/tasks/llm_client.py</code> (new), <code>backend/src/cli.py</code> (strip legacy module-level imports), legacy moves to <code>backend/legacy/</code>, <code>backend/tests/test_llm_client.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Author a complete <code>[project]</code> table (the current file has none — bare dependency array, stub lockfile). Deps: keep fastapi/uvicorn/click/pydantic; add <code>duckdb</code>, <code>openai</code>, <code>pyarrow</code>, <code>scikit-learn</code>; drop prefect/supabase/zhipuai/census/beautifulsoup4 (backtest flows are plain asyncio); dev deps pytest + pytest-asyncio. Quarantine: delete <code>src/tasks/llm.py</code> (ABC + factory move to the new module); move Prefect-era modules (<code>flows/simulation.py</code>, <code>flows/ingestion.py</code>, <code>tasks/news.py</code>, <code>tasks/database.py</code>) and stale tests under <code>backend/legacy/</code>. Client: async OpenAI-compatible, JSON response format, thinking disabled, ≤2 retries, process-wide call ceiling. API key lives outside the repo (<code>~/.config/jefferson/env</code>) with a provider-level spend cap matching R12. VPS bootstrap: install <code>uv</code> user-space; it provisions Python 3.12 (system is 3.10).</p></details>
+<details><summary>Test scenarios</summary><ul><li><code>uv sync</code> then <code>uv run pytest</code> passes clean on fresh clone</li><li>Client returns validated JSON for a mocked response; malformed response retries twice then records failure without raising</li><li>Call ceiling trips at N+1 with a clean error</li><li>Concurrent calls don't serialize (mock-latency test)</li></ul></details>
+<details><summary>Verification</summary><p>Fresh clone + <code>uv sync</code> + tests pass locally and on the VPS.</p></details>
+</article>
+
+<article class="unit" id="u2"><h3><span class="idchip">U2</span>Vault governance: data-registry rows</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>All six datasets registered before anything downloads (vault rule).</dd>
+<dt>Requirements</dt><dd>R3, R4</dd>
+<dt>Dependencies</dt><dd>none (parallel with U1)</dd>
+<dt>Files</dt><dd>vault <code>02-DATA/Data-Registry.md</code> (edited in a vault worktree)</dd>
+</dl>
+<details><summary>Approach</summary><p>One row each: VR_Snapshot_20201103, results_pct_20201103, <b>WAKE_PRECINCT_SORT</b> (primary truth per KTD-1, noise caveat noted), ncvhis92, MEDSL precinct returns (CC0), CES 2020 (free Dataverse login). Each row: exact URL, license, PII flag (voter files: yes — raw deleted post-filter, aggregates only), provenance, VPS storage path. NC commercial-use prohibition on every NCSBE row. Plus an inference-provider row recording the resolved provider's retention/training-use terms (KTD-2). Test expectation: none — doc-only; the vault frontmatter hook is the check.</p></details>
+</article>
+
+<article class="unit" id="u3"><h3><span class="idchip">U3</span>Ingest to DuckDB, precinct reconciliation, holdout sealing</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>Wake Nov-2020 data queryable in DuckDB on the VPS; practice precinct verified; holdouts sealed.</dd>
+<dt>Requirements</dt><dd>R1, R2, R3 (gate), R4</dd>
+<dt>Dependencies</dt><dd>U1, U2; CES download is a manual Jose-owed step (Dataverse login) — kick off first</dd>
+<dt>Files</dt><dd><code>backend/src/flows/backtest_ingest.py</code> (new), <code>backend/src/tasks/warehouse.py</code> (new), <code>backend/data/config/holdouts.json</code> (new), <code>backend/tests/test_ingest.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Disk preflight ≥12 GB; download NCSBE files including <code>WAKE_PRECINCT_SORT.txt</code>; streaming conversion per KTD-4 (UTF-16 snapshot; NUL-strip + field-trim for the sort file); DuckDB memory_limit ≈1 GB, temp_directory jose-owned; filter to Wake before any join; parquet extracts keep only non-identifying columns; raw deletion logged + asserted. G1 per Standards (exact precinct-code match; 01-07A is a different precinct; attrition gate per KTD-6; report gubernatorial margin per E6). Select holdouts per KTD-9 → <code>holdouts.json</code>, excluded from all later queries. CES file checksum-verified against its Dataverse hash before load.</p></details>
+<details><summary>Test scenarios</summary><ul><li>UTF-16 fixture round-trips; NUL-bearing fixture parses after strip; padded fields trimmed</li><li>Wake filter returns only Wake; exact-match excludes 01-07A from 01-07 queries</li><li>G1 passes on fixture, fails loudly on seeded mismatch; attrition gate downgrades oracle on eroded fixture</li><li>Raw deletion only after parquet checksums verify; post-deletion assertion fires</li><li>Holdout precincts absent from every downstream query result</li></ul></details>
+<details><summary>Verification</summary><p>G1 report prints precinct id, registrant count, precinct-sort presidential totals (expect ≈ Biden 2,022 / Trump 527), certified ballot count, oracle decision, gubernatorial margin, sealed holdout ids; raw statewide files gone from disk.</p></details>
+</article>
+
+<article class="unit" id="u4"><h3><span class="idchip">U4</span>Experiment tracker and monitoring dashboard</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>Every run recorded and watchable before any LLM spend.</dd>
+<dt>Requirements</dt><dd>R6–R9</dd>
+<dt>Dependencies</dt><dd>U1 only — the tracker creates its own DuckDB file, runs parallel to U3, ingests <code>holdouts.json</code> when present. Blocks U6/U7.</dd>
+<dt>Files</dt><dd><code>backend/src/tracking/runs.py</code> (new), <code>backend/src/tracking/schema.sql</code> (new), <code>backend/dashboard/</code> (new), <code>backend/tests/test_tracking.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p><code>runs</code> table with R6 fields + experiment id + JSON overflow column (R9). Thin append/read API consumed by loop and scorer. Dashboard: static page regenerated per run — run table, metric-vs-iteration trends, determinant status, cumulative spend; pull 3–5 metric-dashboard references from Mobbin before layout; dependency-free inline JS/CSS; reached via SSH tunnel or localhost only (R7).</p></details>
+<details><summary>Test scenarios</summary><ul><li>Write→read round-trip preserves all fields; appends never overwrite</li><li>Determinant status computed for pass / fail / missing-metric fixtures</li><li>Generator produces valid HTML from fixture history; cumulative spend sums correctly</li></ul></details>
+<details><summary>Verification</summary><p>Dashboard renders fixture history in a browser through the tunnel; an end-to-end dry-run record (no LLM) appears on it.</p></details>
+</article>
+
+<article class="unit" id="u5"><h3><span class="idchip">U5</span>Persona synthesis from voter file + CES conditioning</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>~300 seeded personas matching the practice precinct's Nov-2020 registered population.</dd>
+<dt>Requirements</dt><dd>R4, R10 (G2 gate), R20 (pinned seed)</dd>
+<dt>Dependencies</dt><dd>U3</dd>
+<dt>Files</dt><dd><code>backend/src/flows/persona_synthesis.py</code> (new), <code>backend/src/models/persona.py</code> (extend enums: UNA, Undesignated, ethnicity), <code>backend/src/utils/persona_generator.py</code> (adapt), <code>backend/tests/test_persona_synthesis.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Stratified sample of precinct registrant demographics (party × race × age × sex from the snapshot); CES 2020 NC subsample (weighted, <code>inputstate==37</code>) imputes issue positions and missing demographics (income, education, employment, marital). No identifying fields read. Personas persisted to parquet with stable <code>persona_idx</code> before polling; seed pinned per R20. G2: marginals within 5pp on every one-way margin.</p></details>
+<details><summary>Test scenarios</summary><ul><li>Generated cohort marginals match fixture precinct within tolerance; same seed → identical cohort</li><li>UNA and Undesignated buckets appear in proportion</li><li>No PII columns in persona parquet schema</li><li>CES imputation respects weights (distribution test)</li></ul></details>
+<details><summary>Verification</summary><p>G2 report prints side-by-side marginals; persona parquet hash recorded to tracker.</p></details>
+</article>
+
+<article class="unit" id="u6"><h3><span class="idchip">U6</span>Polling engine</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>Poll all personas (N≥5 samples) with resumable, cost-guarded, time-anchored calls.</dd>
+<dt>Requirements</dt><dd>R5, R10, R12, R17</dd>
+<dt>Dependencies</dt><dd>U1, U4, U5; KTD-2 provider resolution (Jose-owed if chain step 1)</dd>
+<dt>Files</dt><dd><code>backend/src/flows/backtest_poll.py</code> (new), <code>backend/tests/test_poll_flow.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Batched asyncio.gather with (persona_idx, sample_idx, question_id) keys, JSONL append, resume = replay missing tuples. Questions: turnout intent, presidential choice, gubernatorial choice, short issue battery — enum-constrained including "don't know / prefer not to say". Prompt anchors November 2, 2020, zero post-2020 content, geography fixed per R17. Before first paid call: confirm the resolved provider's prompt retention/training-use terms (registry row per U2). G3 smoke gate per Standards.</p></details>
+<details><summary>Test scenarios</summary><ul><li>Mid-run kill + restart yields exactly the missing tuples, no duplicates</li><li>Equal per-persona sample counts after injected transient failures; all-fail persona flagged, not dropped</li><li>Prompt snapshot contains no post-2020 entities and no geography beyond the fixed pre-loop set (fixture checks)</li><li>Cost projection matches token accounting on a mocked run</li></ul></details>
+<details><summary>Verification</summary><p>G3 report (parse rate, latency, projected cost) recorded to tracker; full run produces 300×5 response sets with equal counts.</p></details>
+</article>
+
+<article class="unit" id="u7"><h3><span class="idchip">U7</span>Scoring, baselines, and determinant evaluation</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>Compute D1–D4, compare against baselines, write the run record.</dd>
+<dt>Requirements</dt><dd>R6, R10, R16</dd>
+<dt>Dependencies</dt><dd>U3 (truth + oracle), U4, U6</dd>
+<dt>Files</dt><dd><code>backend/src/flows/backtest_score.py</code> (new), <code>backend/src/tasks/metrics.py</code> (new), <code>backend/src/analytics/views.sql</code> + co-located doc files (new — KTD-8 minimal surface), <code>backend/tests/test_metrics.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Aggregate response distributions per persona (not modal answers); weight by turnout oracle (per G1's decision) and modeled turnout as second variant; G4 cell audit locks scoreable cells; compute D1 (vs precinct-sort truth per KTD-1, with the noise band recorded), D2 (weighted-mean + max subgroup error), D3 decomposed (within- vs across-persona variance; don't-know vs CES), D4 as margin-delta; bootstrap CIs over personas and samples; baselines: uniform swing from 2016 + demographics-only logit on CES NC (D1 judged against these two only). Two RECAP-style informational columns ride along: answer consistency across a persona's samples (intervention-consistency proxy) and issue-position-to-vote coherence (causal-traceability proxy). Metrics defined as DuckDB views + doc files (KTD-8). Scorer writes the complete run record.</p></details>
+<details><summary>Test scenarios</summary><ul><li>Metrics reproduce hand-computed values on a tiny fixture electorate</li><li>Oracle vs modeled weighting both recorded and differ on fixture</li><li>Variance-collapsed fixture fails D3; within/across decomposition separates seeded vs generated variance on a CES-echo fixture</li><li>Margin-delta D4 computed correctly on straight-ticket and split-ticket fixtures</li><li>Baseline logic requires beating BOTH baselines; CI coverage flag correct for inside/outside cases</li></ul></details>
+<details><summary>Verification</summary><p>One command scores a stored response set; the new row appears on the dashboard with determinant statuses and the ground-truth noise band noted.</p></details>
+</article>
+
+<article class="unit" id="u8"><h3><span class="idchip">U8</span>Vault knowledge artifacts</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>ADR drafts, research files, keystone brief, landscape update ready for Jose's signature.</dd>
+<dt>Requirements</dt><dd>R14, R15</dd>
+<dt>Dependencies</dt><dd>none (parallel)</dd>
+<dt>Files</dt><dd>vault worktree: <code>01-ARCHITECTURE/ADRs/ADR-004-build-sequence-v1.md</code>, <code>ADR-005-planner-hybrid.md</code>, <code>ADR-006-analytics-foundation.md</code>, ADR-003 amendment; <code>05-RESEARCH/</code> papers per PAPER-TEMPLATE; sentiment-keystone brief; <code>04-PRODUCT/Jefferson-Competitive-Landscape.md</code> update</dd>
+</dl>
+<details><summary>Approach</summary><p>ADRs follow the vault template, status <code>proposed</code>. Landscape update adds SimSurveys, Aaru (incl. 2024 misses), Simile, Expected Parrot, Viewpoints, Verasight benchmark numbers, and the empty-precinct-lane finding with sources. Test expectation: none — doc-only; vault frontmatter hook + ADR template are the checks. Also: clean up the prior session's dirty vault state (uncommitted <code>00-CHANGELOG.md</code>, <code>00-README.md</code>, untracked <code>06-BRAND/Founder-Bio.md</code>) — commit or stash explicitly, never silently absorb.</p></details>
+</article>
+
+<article class="unit" id="u9"><h3><span class="idchip">U9</span>One-command orchestration, VPS deploy, loop protocol, holdout exam</h3>
+<dl class="strip">
+<dt>Goal</dt><dd>The pipeline runs as one command on the VPS; the loop iterates under protocol; holdouts decide the verdict.</dd>
+<dt>Requirements</dt><dd>R1, R11–R13, R16–R20</dd>
+<dt>Dependencies</dt><dd>U1–U7</dd>
+<dt>Files</dt><dd><code>backend/src/cli.py</code> (<code>backtest</code> group: <code>ingest</code>, <code>personas</code>, <code>poll</code>, <code>score</code>, <code>run-all</code>, <code>holdout</code>, <code>status</code>), <code>backend/deploy/sync.sh</code> (rsync over SSH to jose-owned path), <code>backend/tests/test_cli_backtest.py</code> (new)</dd>
+</dl>
+<details><summary>Approach</summary><p>Subcommands compose the flows with gates enforced; <code>run-all</code> halts at any failed gate. Loop protocol per Standards: prompts/persona-conditioning only; geography fixed (R17); seed pinned (R20); every iteration tracked. On practice pass: replicate with fresh seed → tag commit → <code>holdout</code> (refuses without a frozen tag or with a dirty tree; FREEZE pins the persona parquet hash + seed in the tag) → geography-masked diagnostic (R18). Failed exam burns holdouts per R19. Results doc generated from tracker records: gap interpretation, masked-run comparison, exam count, noise caveat, claim scope.</p></details>
+<details><summary>Test scenarios</summary><ul><li><code>run-all</code> stops at seeded G1 failure, non-zero exit, tracker record written</li><li><code>holdout</code> refuses without frozen tag; refuses on dirty tree; uses the tagged persona parquet hash</li><li>Budget ceiling aborts mid-poll; partial run resumable</li><li>Burn logic reclassifies failed holdouts and seals fresh ones; third burn declares experiment failed</li><li>Results doc includes every tracked run</li></ul></details>
+<details><summary>Verification</summary><p>End-to-end dry run (mocked LLM) on the VPS from one command; then the real sequence G1→G4 under live budget caps.</p></details>
+</article>
+</section>
+
+<section id="executor">
+<h2>Executor Contract</h2>
+<p>This plan is executed by a cheaper-model agent. The division of authority is fixed:</p>
+<div class="callout c-info"><span class="eyebrow">Executor MAY decide</span>Mechanical implementation choices inside a unit's spec: function decomposition, variable naming, test fixture shapes, retry timings, SQL phrasing, dashboard layout details (within the Mobbin-referenced direction). Anything where two reasonable choices both satisfy the unit's test scenarios.</div>
+<div class="callout c-fail"><span class="eyebrow">Executor MAY NOT decide</span>Determinant thresholds and gates (R13); prompt geography (R17); holdout identities or any holdout read before FREEZE (R11); scope changes (adding/removing units or requirements); standing-decision changes (those are ADRs, signed by Jose only); skipping a failed gate; any external communication; any spend beyond the env-configured ceiling; calling anything "validated" (claim standard).</div>
+<div class="callout c-warn"><span class="eyebrow">Escalation protocol</span>On any blocked state (gate failure with no named fallback, provider chain exhausted, vault hook conflicts, data surprises not covered by E1–E6): write a blocker record to the tracker (what was attempted, exact error, which fallback was tried), commit work-in-progress to the worktree branch, and stop. Do not improvise around a block. Jose-owed items at handoff: DeepInfra key (KTD-2 step 1) and the CES Dataverse download (U3).</div>
+<div class="callout c-ok"><span class="eyebrow">Definition of done</span>All nine units verified per their Verification fields; D1–D5 evaluated with the loop run under protocol (whatever the outcome — a well-documented fail is a valid result); results doc written with gap interpretation; vault artifacts committed through the frontmatter hook; session closed per vault rules (AGENTS-LOG row, agents.json flip, eval run, git ledger commit).</div>
+<p>Execution order: U1 ∥ U2 → U3 ∥ U4 → U5 → U6 → U7 → U9 loop; U8 parallel throughout. The tracker (U4) must be live before the first paid call (R8).</p>
+</section>
+
+<section id="scope">
+<h2>Scope Boundaries</h2>
+<div class="callout c-warn"><span class="eyebrow">Deferred to follow-up work</span>Frontier-API reference comparison; precinct expansion beyond the two holdouts; the MVP plan (replay pipeline, diffusion, hybrid planner implementation, voter fine-tuning — written after this experiment's result); full-population agent-per-registrant simulation (composites only until the diffusion rung); determinants for future experiments (the schema accommodates them via R9); cross-county/cross-cycle validation (prerequisite for any commercial "validated" language).</div>
+<div class="callout c-fail"><span class="eyebrow">Non-goals</span>Refactoring the legacy Supabase/news code (quarantined, not fixed); the campaign-facing product UI; any real-voter contact (phone fields never read; live polling is the sentiment-keystone thread with its own legal guardrails); public accuracy claims before D5 passes.</div>
+</section>
+
+<section id="risks">
+<h2>Risks &amp; Dependencies</h2>
+<table>
+<tr><th>Risk</th><th>Status</th><th>Treatment</th></tr>
+<tr><td>Model knowledge leakage — every modern model (open or closed, rented or self-hosted) trained after Nov 2020 knows the outcome; the holdout exam does NOT control for this (all precincts sit in the same remembered county)</td><td><span class="chip chg">MEASURED, NOT ELIMINATED</span></td><td>Geography-masked diagnostic (R18) quantifies it; results doc reports it; switching providers/hosting cannot fix it; only a future fine-tuned model on controlled data or live-race validation truly escapes it</td></tr>
+<tr><td>Ground truth carries deliberate statistical noise (precinct-sort file, NC GS §163-132.5G)</td><td><span class="chip inf">DECLARED</span></td><td>Noise band recorded in scoring; county-total cross-check vs results_pct and MEDSL (KTD-1)</td></tr>
+<tr><td>No inference API key exists (E1)</td><td><span class="chip bad">OPEN — JOSE-OWED</span></td><td>KTD-2 fallback chain; blocks U6 only; G3 validates the resolution</td></tr>
+<tr><td>CES download is login-gated</td><td><span class="chip bad">OPEN — JOSE-OWED</span></td><td>Manual download first; pipeline takes file path + verifies Dataverse checksum</td></tr>
+<tr><td>Practice precinct is a 79/21 blowout — memory-easy, structure-blind (E6)</td><td><span class="chip chg">MITIGATED</span></td><td>Competitive holdout required (KTD-9); D4 re-operationalized as margin-delta; G1 reports gubernatorial margin; if Jose prefers a competitive practice precinct instead, that is an ADR-001 amendment to propose, not an executor decision</td></tr>
+<tr><td>VPS memory pressure (swap exhausted, ~2.4 GB available; postgres/redis/mongo co-resident)</td><td><span class="chip chg">CONSTRAINED</span></td><td>DuckDB memory_limit 1 GB; filter-before-join; streaming conversion; expect temp-dir spilling</td></tr>
+<tr><td>NC commercial-use prohibition on voter data</td><td><span class="chip inf">DECLARED</span></td><td>Registry rows + artifact-level notices; internal R&amp;D only; resurfaces at productization</td></tr>
+<tr><td>Schedule pressure softening gates</td><td><span class="chip inf">RULE SET</span></td><td>Gates are hard stops (Standards); pressure-made judgments are tracked records; slippage is schedule-only, not architectural</td></tr>
+</table>
+</section>
+
+<section id="sources">
+<h2>Sources &amp; Research</h2>
+<ul>
+<li>Origin docs: <code>docs/brainstorms/2026-06-10-jefferson-architecture-rethink-requirements.md</code>, <code>docs/brainstorms/2026-06-11-experiment-success-determinants-requirements.md</code> · Vault: <code>03-MODELS/Backtest-Spec.md</code>, <code>01-ARCHITECTURE/ADRs/ADR-001..003</code>, <code>04-PRODUCT/Jefferson-Competitive-Landscape.md</code></li>
+<li>Data (all verified live 2026-06-11/12): <a href="https://s3.amazonaws.com/dl.ncsbe.gov/data/Snapshots/VR_Snapshot_20201103.zip">NCSBE voter snapshot 2020-11-03</a> (~1.05 GB, UTF-16LE) · <a href="https://s3.amazonaws.com/dl.ncsbe.gov/ENRS/2020_11_03/results_pct_20201103.zip">certified precinct results</a> (election-day-only at precinct level — see E3) · <a href="https://s3.amazonaws.com/dl.ncsbe.gov/ENRS/2020_11_03/results_precinct_sort/WAKE_PRECINCT_SORT.txt">Wake precinct-sorted results</a> (primary truth) · <a href="https://s3.amazonaws.com/dl.ncsbe.gov/ENRS/2020_11_03/layout_results_precinct_sort.txt">its layout + noise statement</a> · <a href="https://s3.amazonaws.com/dl.ncsbe.gov/data/ncvhis92.zip">Wake voter history</a> · <a href="https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/K7760H">MEDSL 2020 precinct returns</a> (CC0) · <a href="https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/E9N6PH">CES 2020 common content</a></li>
+<li>Inference: <a href="https://deepinfra.com/pricing">DeepInfra pricing</a> (Qwen3-14B $0.12/$0.24 per M; Qwen3-8B absent — basis of the ADR-003 amendment)</li>
+<li>Determinant calibration: <a href="https://www.verasight.io/reports/synthetic-sampling">Verasight synthetic-sampling white paper</a> (4-pt avg / 8-pt subgroup / ~0% don't-know vs 29% real) · <a href="https://simsurveys.com/methodology-evolution">SimSurveys methodology &amp; thresholds</a> · <a href="https://arxiv.org/abs/2507.02919">Li et al., variance collapse / homogenization</a> · <a href="https://arxiv.org/abs/2405.06058">LLM social-desirability bias</a> · <a href="https://arxiv.org/abs/2402.18144">random silicon sampling (foundations)</a> · <a href="https://arxiv.org/abs/2411.10109">Park et al., generative-agent simulations of 1,000 people</a></li>
+<li>Competitive context: <a href="https://www.semafor.com/article/11/04/2024/an-ai-polling-startup-polls-bots-predicts-harris-will-win">Aaru's 2024 battleground misses</a> · <a href="https://arxiv.org/abs/2512.05982">FlockVote</a> · <a href="https://arxiv.org/abs/2410.20746">ElectionSim</a></li>
+<li>Reusable code: <code>backend/src/models/persona.py</code>, <code>backend/src/utils/persona_generator.py</code>, <code>backend/src/flows/simulation.py</code> (skeleton only), <code>backend/src/cli.py</code>. Known-broken: <code>backend/pyproject.toml</code>, <code>backend/src/tasks/llm.py</code> (replace, don't repair).</li>
+</ul>
+</section>
+
+<footer class="composition-signal">Composed <time datetime="2026-06-12">2026-06-12</time> by ce-plan (hardening revision r2) from <code>docs/brainstorms/2026-06-10-jefferson-architecture-rethink-requirements.md</code> + <code>docs/brainstorms/2026-06-11-experiment-success-determinants-requirements.md</code>, a 5-persona document review, and live assumption experiments E1–E6 run 2026-06-12.</footer>
+</div></body>
+</html>
