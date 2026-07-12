@@ -1,4 +1,9 @@
 # Byte-compiled / optimized / DLL files
+data/warehouse/*.duckdb
+dbt/target/
+dbt/dbt_packages/
+dbt/profiles.yml
+data/warehouse/postgres/
 __pycache__/
 *.py[codz]
 *$py.class
@@ -210,3 +215,4 @@ __marimo__/
 # data files
 *.txt
 *.csv
+*.pre-phase0.bak

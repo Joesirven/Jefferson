@@ -1,34 +1,54 @@
 # src/tasks/database.py
-"""Database connection and queries using Supabase."""
+"""Database connection and queries using asyncpg (Postgres)."""
 
+from __future__ import annotations
+
+import json
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
-from supabase import Client, create_client
+import asyncpg
 
 from src.models.persona import Persona
 
-# Supabase client
-_supabase_client: Optional[Client] = None
+_pool: Optional[asyncpg.Pool] = None
 
 
-def get_supabase_client() -> Client:
-    """Get or create Supabase client."""
-    global _supabase_client
+def get_database_url() -> str:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise ValueError(
+            "DATABASE_URL must be set in environment. "
+            "Example: postgresql://jefferson:jefferson@localhost:5432/jefferson"
+        )
+    return url
 
-    if _supabase_client is None:
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_ANON_KEY")  # or service role key
 
-        if not supabase_url or not supabase_key:
-            raise ValueError(
-                "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment. "
-                "Get them from your Supabase project settings."
-            )
+async def get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(get_database_url(), min_size=1, max_size=10)
+    return _pool
 
-        _supabase_client = create_client(supabase_url, supabase_key)
 
-    return _supabase_client
+async def close_pool() -> None:
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
+
+
+def _json(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    return json.dumps(value)
+
+
+def _persona_row(persona: Persona) -> Dict[str, Any]:
+    data = persona.model_dump(mode="json")
+    data.pop("id", None)
+    return data
 
 
 # ============================================================================
@@ -37,42 +57,56 @@ def get_supabase_client() -> Client:
 
 
 async def get_personas_by_precinct(precinct_id: str) -> List[Persona]:
-    """Get all personas for a precinct."""
-    client = get_supabase_client()
-
-    response = client.table("personas").select("*").eq("precinct_id", precinct_id).execute()
-
-    personas = [Persona(**row) for row in response.data]
-    return personas
+    pool = await get_pool()
+    rows = await pool.fetch("SELECT * FROM personas WHERE precinct_id = $1", precinct_id)
+    return [Persona(**dict(row)) for row in rows]
 
 
-async def save_persona(persona: Persona) -> Dict:
-    """Save a persona to the database."""
-    client = get_supabase_client()
+async def save_persona(persona: Persona) -> Dict[str, Any]:
+    pool = await get_pool()
+    row = _persona_row(persona)
+    columns = list(row.keys())
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
+    col_names = ", ".join(columns)
+    values = [row[c] for c in columns]
 
-    response = client.table("personas").insert(persona.dict()).execute()
-    return response.data[0]
+    record = await pool.fetchrow(
+        f"INSERT INTO personas ({col_names}) VALUES ({placeholders}) RETURNING *",
+        *values,
+    )
+    return dict(record)
 
 
-async def save_personas_batch(personas: List[Persona]) -> List[Dict]:
-    """Save multiple personas in a batch."""
-    client = get_supabase_client()
+async def save_personas_batch(personas: List[Persona]) -> List[Dict[str, Any]]:
+    if not personas:
+        return []
 
-    data = [p.dict() for p in personas]
-    response = client.table("personas").insert(data).execute()
-    return response.data
+    pool = await get_pool()
+    rows = [_persona_row(p) for p in personas]
+    columns = list(rows[0].keys())
+    col_names = ", ".join(columns)
+
+    inserted: List[Dict[str, Any]] = []
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for row in rows:
+                placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
+                values = [row[c] for c in columns]
+                record = await conn.fetchrow(
+                    f"INSERT INTO personas ({col_names}) VALUES ({placeholders}) RETURNING *",
+                    *values,
+                )
+                inserted.append(dict(record))
+    return inserted
 
 
 async def get_persona_count(precinct_id: Optional[str] = None) -> int:
-    """Get count of personas, optionally filtered by precinct."""
-    client = get_supabase_client()
-
-    query = client.table("personas").select("*", count="exact")
+    pool = await get_pool()
     if precinct_id:
-        query = query.eq("precinct_id", precinct_id)
-
-    response = query.execute()
-    return response.count
+        return await pool.fetchval(
+            "SELECT COUNT(*) FROM personas WHERE precinct_id = $1", precinct_id
+        )
+    return await pool.fetchval("SELECT COUNT(*) FROM personas")
 
 
 # ============================================================================
@@ -80,39 +114,46 @@ async def get_persona_count(precinct_id: Optional[str] = None) -> int:
 # ============================================================================
 
 
-async def save_simulation_results(simulation_id: str, results: Dict[str, Any]) -> Dict:
-    """Save simulation results."""
-    client = get_supabase_client()
-
-    data = {"simulation_id": simulation_id, "results": results, "status": "completed"}
-
-    response = client.table("simulations").upsert(data).execute()
-    return response.data[0]
-
-
-async def get_simulation_results(simulation_id: str) -> Optional[Dict]:
-    """Get simulation results by ID."""
-    client = get_supabase_client()
-
-    response = client.table("simulations").select("*").eq("simulation_id", simulation_id).execute()
-
-    if response.data:
-        return response.data[0]
-    return None
-
-
-async def list_simulations(limit: int = 50) -> List[Dict]:
-    """List recent simulations."""
-    client = get_supabase_client()
-
-    response = (
-        client.table("simulations")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
+async def save_simulation_results(simulation_id: str, results: Dict[str, Any]) -> Dict[str, Any]:
+    pool = await get_pool()
+    record = await pool.fetchrow(
+        """
+        INSERT INTO simulations (simulation_id, results, status, completed_at)
+        VALUES ($1, $2::jsonb, 'completed', NOW())
+        ON CONFLICT (simulation_id) DO UPDATE SET
+            results = EXCLUDED.results,
+            status = EXCLUDED.status,
+            completed_at = NOW()
+        RETURNING *
+        """,
+        simulation_id,
+        json.dumps(results),
     )
-    return response.data
+    return dict(record)
+
+
+async def save_results(
+    all_results: Dict[str, Any], simulation_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Save multi-precinct simulation output (used by simulation flows)."""
+    sim_id = simulation_id or str(uuid.uuid4())
+    return await save_simulation_results(sim_id, all_results)
+
+
+async def get_simulation_results(simulation_id: str) -> Optional[Dict[str, Any]]:
+    pool = await get_pool()
+    record = await pool.fetchrow(
+        "SELECT * FROM simulations WHERE simulation_id = $1", simulation_id
+    )
+    return dict(record) if record else None
+
+
+async def list_simulations(limit: int = 50) -> List[Dict[str, Any]]:
+    pool = await get_pool()
+    rows = await pool.fetch(
+        "SELECT * FROM simulations ORDER BY created_at DESC LIMIT $1", limit
+    )
+    return [dict(row) for row in rows]
 
 
 # ============================================================================
@@ -121,28 +162,48 @@ async def list_simulations(limit: int = 50) -> List[Dict]:
 
 
 async def get_latest_news_context(county: str, hours: int = 24) -> str:
-    """Get latest news context for a county."""
-    client = get_supabase_client()
-
-    response = (
-        client.table("news_articles")
-        .select("*")
-        .eq("county", county)
-        .order("published_at", desc=True)
-        .limit(10)
-        .execute()
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT title, summary FROM news_articles
+        WHERE county = $1
+        ORDER BY published_at DESC NULLS LAST
+        LIMIT 10
+        """,
+        county,
     )
 
-    if not response.data:
+    if not rows:
         return ""
 
-    # Format as context
-    articles = response.data
     context = f"Recent news from {county}:\n"
-    for article in articles:
-        context += f"- {article.get('title', '')}: {article.get('summary', '')[:100]}...\n"
-
+    for row in rows:
+        summary = (row["summary"] or "")[:100]
+        context += f"- {row['title']}: {summary}...\n"
     return context
+
+
+async def upsert_news_article(article: Dict[str, Any]) -> None:
+    pool = await get_pool()
+    await pool.execute(
+        """
+        INSERT INTO news_articles (title, url, summary, content, source, county, published_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (url) DO UPDATE SET
+            title = EXCLUDED.title,
+            summary = EXCLUDED.summary,
+            content = EXCLUDED.content,
+            source = EXCLUDED.source,
+            scraped_at = NOW()
+        """,
+        article.get("title"),
+        article.get("url"),
+        article.get("summary"),
+        article.get("content"),
+        article.get("source"),
+        article.get("county"),
+        article.get("published_at"),
+    )
 
 
 # ============================================================================
@@ -152,100 +213,47 @@ async def get_latest_news_context(county: str, hours: int = 24) -> str:
 
 async def get_matching_survey_respondents(
     age_range: tuple, education: str, race: str, county: Optional[str] = None
-) -> List[Dict]:
-    """Get survey respondents matching demographics (for persona building)."""
-    client = get_supabase_client()
-
-    query = client.table("survey_responses").select("*")
-
-    # Apply filters (simplified - you'd want more sophisticated matching)
+) -> List[Dict[str, Any]]:
+    pool = await get_pool()
     if county:
-        query = query.eq("county", county)
+        rows = await pool.fetch(
+            "SELECT * FROM survey_responses WHERE county = $1 LIMIT 100", county
+        )
+    else:
+        rows = await pool.fetch("SELECT * FROM survey_responses LIMIT 100")
+    return [dict(row) for row in rows]
 
-    # Note: Supabase doesn't support complex range queries easily
-    # You might want to use Postgres RPC functions for this
 
-    response = query.execute()
-    return response.data
+async def insert_survey_batch(batch: List[Dict[str, Any]], table: str = "survey_responses") -> int:
+    if not batch:
+        return 0
+    if table != "survey_responses":
+        raise ValueError(f"Unsupported table: {table}")
 
-
-# ============================================================================
-# SCHEMA SETUP (for reference)
-# ============================================================================
-
-"""
-SQL for Supabase (run in SQL Editor):
-
--- Personas table
-CREATE TABLE personas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    age INTEGER NOT NULL,
-    gender TEXT NOT NULL,
-    race TEXT NOT NULL,
-    education TEXT NOT NULL,
-    income_bracket TEXT NOT NULL,
-    employment_status TEXT NOT NULL,
-    marital_status TEXT NOT NULL,
-    precinct_id TEXT NOT NULL,
-    census_block_group TEXT,
-    county TEXT NOT NULL,
-    neighborhood TEXT,
-    party_id TEXT NOT NULL,
-    ideology TEXT NOT NULL,
-    vote_history JSONB,
-    top_issues TEXT[],
-    issue_positions JSONB,
-    news_sources TEXT[],
-    source_voter_id TEXT,
-    socrates_prior BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create index on precinct_id for faster queries
-CREATE INDEX idx_personas_precinct ON personas(precinct_id);
-CREATE INDEX idx_personas_county ON personas(county);
-
--- Simulations table
-CREATE TABLE simulations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    simulation_id TEXT UNIQUE NOT NULL,
-    results JSONB NOT NULL,
-    status TEXT DEFAULT 'running',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
-);
-
--- Survey responses table
-CREATE TABLE survey_responses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    age_group TEXT,
-    education TEXT,
-    gender TEXT,
-    race TEXT,
-    income TEXT,
-    party_id TEXT,
-    ideology TEXT,
-    vote_history JSONB,
-    issue_positions JSONB,
-    top_issues TEXT[],
-    news_sources TEXT[],
-    raw_data JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- News articles table
-CREATE TABLE news_articles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
-    url TEXT,
-    summary TEXT,
-    content TEXT,
-    source TEXT,
-    county TEXT NOT NULL,
-    published_at TIMESTAMP WITH TIME ZONE,
-    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create index for news queries
-CREATE INDEX idx_news_county_date ON news_articles(county, published_at DESC);
-"""
+    pool = await get_pool()
+    inserted = 0
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for record in batch:
+                await conn.execute(
+                    """
+                    INSERT INTO survey_responses (
+                        age_group, education, gender, race, income, party_id, ideology,
+                        vote_history, issue_positions, top_issues, news_sources, raw_data
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb)
+                    """,
+                    record.get("age_group"),
+                    record.get("education"),
+                    record.get("gender"),
+                    record.get("race"),
+                    record.get("income"),
+                    record.get("party_id"),
+                    record.get("ideology"),
+                    _json(record.get("vote_history")),
+                    _json(record.get("issue_positions")),
+                    record.get("top_issues"),
+                    record.get("news_sources"),
+                    _json(record),
+                )
+                inserted += 1
+    return inserted

@@ -62,18 +62,17 @@ async def parse_top_survey(file_path: str) -> List[Dict[str, Any]]:
 
 @task(name="save_survey_to_db")
 async def save_survey_to_db(survey_data: List[Dict[str, Any]], table: str = "survey_responses"):
-    """Save parsed survey data to Supabase."""
-    from src.tasks.database import get_supabase_client
+    """Save parsed survey data to Postgres."""
+    from src.tasks.database import insert_survey_batch
 
     logger = get_run_logger()
 
-    # Insert in batches
     batch_size = 1000
     inserted = 0
 
     for i in range(0, len(survey_data), batch_size):
         batch = survey_data[i : i + batch_size]
-        result = get_supabase_client().table(table).insert(batch).execute()
+        await insert_survey_batch(batch, table=table)
         inserted += len(batch)
         logger.info(f"Inserted {inserted}/{len(survey_data)} records")
 
@@ -678,10 +677,10 @@ async def ingest_news(county: str, hours_back: int = 48) -> List[Dict[str, Any]]
     logger.info(f"Ingested {len(articles)} articles for {county}")
 
     # Save to database
-    from src.tasks.database import get_supabase_client
+    from src.tasks.database import upsert_news_article
 
     for article in articles:
         article["county"] = county
-        get_supabase_client().table("news_articles").upsert(article).execute()
+        await upsert_news_article(article)
 
     return articles

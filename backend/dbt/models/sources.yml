@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: warehouse
+    description: Parquet files synced from Postgres and seed CSVs
+    meta:
+      external_location: "../data/warehouse/{name}.parquet"
+    tables:
+      - name: election/wake_county_2020_precincts
+        identifier: election/wake_county_2020_precincts

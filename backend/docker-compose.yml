@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jefferson-postgres
+    environment:
+      POSTGRES_USER: jefferson
+      POSTGRES_PASSWORD: 911700f343a594957cb2f728f7f28ea3
+      POSTGRES_DB: jefferson
+    ports:
+      - "127.0.0.1:5433:5432"
+      - "100.114.62.119:5433:5432"
+    volumes:
+      - jefferson_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jefferson -d jefferson"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  jefferson_pg_data:

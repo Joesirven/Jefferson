@@ -1,0 +1,22 @@
+name: jefferson
+version: 1.0.0
+config-version: 2
+
+profile: jefferson
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  jefferson:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
