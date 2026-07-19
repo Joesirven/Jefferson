@@ -186,3 +186,7 @@ next-env.d.ts
 # OS
 .DS_Store
 Thumbs.db
+
+# Cursor/Claude machine-local state and linked worktrees
+.claude/launch.json
+.claude/worktrees/
