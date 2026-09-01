@@ -11,6 +11,42 @@ Agentic simulation for silicon polling - creating synthetic voter personas for e
 - **Batch Simulations**: Run large-scale simulations across multiple precincts
 - **Fast & Scalable**: Built with Prefect for workflow orchestration and Supabase for data storage
 
+## 🧭 Architecture
+
+**How a poll runs** - question to crosstabs, rendered with Remotion (source in [`/media/remotion`](../media/remotion)):
+
+<video src="https://raw.githubusercontent.com/Joesirven/Jefferson/main/media/videos/simulation.mp4" controls muted playsinline width="720"></video>
+
+[Direct link: media/videos/simulation.mp4](../media/videos/simulation.mp4)
+
+### Module map
+
+```
+backend/src/
+├── cli.py                     # Click CLI: ingest, scrape-news, count, show-personas, poll, interactive-poll, simulate, list-sims
+├── api/main.py                # FastAPI: /v1/simulation/start, /v1/poll/precinct, /v1/ingest/surveys, /v1/personas/*
+├── models/persona.py          # Pydantic models: Persona, PrecinctConfig, PollQuestion, PollResponse
+├── flows/
+│   ├── ingestion.py           # Persona generation + persistence flow
+│   └── simulation.py          # poll_precinct (batched async, max_concurrent=50), run_simulation, aggregate_responses
+├── tasks/
+│   ├── database.py            # Supabase access layer + DDL for personas / survey_responses / simulations / news_articles
+│   ├── llm.py                 # Pluggable LLM clients: GLM (default), Gemini, Claude
+│   └── news.py                # NewsScraper: SF + Miami-Dade local outlets -> summaries -> prompt context
+└── utils/
+    ├── persona_generator.py   # Sample demographics from precinct distributions, match survey respondents, fallback priors
+    └── survey_parser.py       # TOP survey CSV -> respondent records
+```
+
+### Data flow
+
+1. **Ingest** (`jefferson ingest`): TOP survey CSVs are parsed into respondent records; `PersonaGenerator` samples correlated demographics (age, race, gender, education, income, party, ideology) from each precinct's distribution, matches a real survey respondent where possible, and falls back to ideology-based priors otherwise.
+2. **Context** (`jefferson scrape-news`): recent local news per county is scraped, summarized, and stored in `news_articles`, then injected into every persona prompt.
+3. **Poll** (`jefferson poll` / `simulate`): each persona becomes an in-character prompt (`Persona.to_prompt`), fanned out in batches of up to 50 concurrent LLM calls per precinct.
+4. **Aggregate**: choice questions get counts, scale questions get mean/min/max, open-ended responses are kept raw; results are saved to `simulations` and readable from the CLI, the FastAPI endpoints, or the web frontend.
+
+---
+
 ## 🛠️ Technology Stack
 
 - **Python 3.12+**: Core language
@@ -37,7 +73,7 @@ Agentic simulation for silicon polling - creating synthetic voter personas for e
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
-   cd Jefferson_hackathon
+   cd Jefferson/backend
    ```
 
 2. **Install dependencies**

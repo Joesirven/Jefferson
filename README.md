@@ -24,6 +24,7 @@ Jefferson is built for them. LLM-based simulation isn't a replacement for real p
 Jefferson/
 ├── backend/              # Production backend: Prefect orchestration, Supabase persistence, CLI, FastAPI
 ├── web/                  # Next.js frontend (deployed at jefferson-one.vercel.app)
+├── media/                # Remotion-rendered explainer videos + the project that renders them
 └── docs/archive/         # Earlier prototypes and reference implementations
     ├── voter_simulation_v1/   # In-memory Anthropic Agents SDK prototype
     └── ai-town-reference/     # Stanford Generative Agents reference code
@@ -45,6 +46,36 @@ The project has two active components:
 3. **Poll the population** — Ask any question (open-ended, multiple choice, or scale). Each agent responds in-character based on their demographics, prior opinions, and news exposure. Results are aggregated and cross-tabulated by demographic segment.
 
 The result: a synthetic survey reflecting how a demographically-realistic population might respond — at a fraction of the cost and time of traditional polling.
+
+---
+
+## Architecture, visually
+
+Two short walkthroughs, rendered programmatically with [Remotion](https://remotion.dev) (source and re-render instructions in [`media/remotion/`](./media/remotion)).
+
+**System architecture** - data in, predictions out:
+
+<video src="https://raw.githubusercontent.com/Joesirven/Jefferson/main/media/videos/architecture.mp4" controls muted playsinline width="720"></video>
+
+[Direct link: media/videos/architecture.mp4](./media/videos/architecture.mp4)
+
+**How a poll runs** - one question, thousands of in-character agents, crosstabs out:
+
+<video src="https://raw.githubusercontent.com/Joesirven/Jefferson/main/media/videos/simulation.mp4" controls muted playsinline width="720"></video>
+
+[Direct link: media/videos/simulation.mp4](./media/videos/simulation.mp4)
+
+```mermaid
+flowchart LR
+    A[ACS Census data] --> P[Persona generation]
+    T[TOP survey data] --> P
+    N[Local news scrapers] --> E[Simulation engine - Prefect]
+    P --> S[(Supabase)]
+    S --> E
+    L[Multi-LLM: GLM / Gemini / Claude] <--> E
+    E --> G[Aggregation and crosstabs]
+    G --> O[Click CLI / FastAPI / Next.js]
+```
 
 ---
 
@@ -134,22 +165,6 @@ Voter attributes are not independently random — they follow weighted distribut
 
 ---
 
-## Archive
-
-`/docs/archive` contains earlier iterations preserved for reference:
-
-- **`voter_simulation_v1/`** — In-memory prototype using the Anthropic Agents SDK. Demonstrates async agent orchestration with persistent opinion memory across multi-turn conversations and Twitter exposure rounds. Superseded by the `/backend` system, which adds persistence and batch processing.
-- **`ai-town-reference/`** — Reference implementation from the Stanford Generative Agents project, retained as architectural reference.
-
----
-
-## Author
-
-**Jose Sirven** · [jose@sirven.xyz](mailto:jose@sirven.xyz) · [sirven.xyz](https://sirven.xyz) · [linkedin.com/in/joesirven](https://linkedin.com/in/joesirven)
-
-## License
-
-MIT — see [LICENSE](./LICENSE).
 ## Archive (`/docs/archive`)
 
 | Directory | What it is |
@@ -159,13 +174,12 @@ MIT — see [LICENSE](./LICENSE).
 
 ---
 
-## Research basis
+## Author
 
-- Park, J.S. et al. (2023). [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442). Stanford University.
-- Argyle, L.P. et al. (2023). [Out of One, Many: Using Language Models to Simulate Human Samples](https://arxiv.org/html/2502.07068v1).
+**Jose Sirven** · [jose@sirven.xyz](mailto:jose@sirven.xyz) · [sirven.xyz](https://sirven.xyz) · [linkedin.com/in/joesirven](https://linkedin.com/in/joesirven)
 
 ---
 
-## Author
+## License
 
-**Jose Sirven** · [jose@sirven.xyz](mailto:jose@sirven.xyz) · [sirven.xyz](https://sirven.xyz)
+MIT - see [LICENSE](./LICENSE).
