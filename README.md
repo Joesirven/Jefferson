@@ -53,6 +53,33 @@ flowchart LR
     end
     subgraph CAL["CALIBRATE - anchored to reality"]
         direction TB
+        SMS["Weekly SMS-to-web<br/>micro-polls"] --> MRP{"MRP reweighting -<br/>feeds next week's build"}
+        RES --> BT["Backtested against certified<br/>election results"]
+    end
+
+    classDef core fill:#005032,stroke:#0D1016,color:#FAFAF9
+    classDef store fill:#0D1016,stroke:#005032,color:#FAFAF9
+    classDef guard fill:#F5C518,stroke:#0D1016,color:#0D1016
+    class VF,SYN,NEWS,AGT,RES,SMS core
+    class POP store
+    class MRP,BT guard
+```
+
+```mermaid
+flowchart LR
+    subgraph BUILD["BUILD - a statistically real electorate"]
+        direction TB
+        VF["Voter file + census data"] --> SYN["IPF population synthesis"]
+        SYN --> POP[("N voter agents per precinct<br/>age, race, income, party,<br/>ideology, top issues")]
+    end
+    subgraph RUN["RUN - poll them like a real survey"]
+        direction TB
+        NEWS["Local news scrape<br/>(current events)"] --> AGT["Agents answer in-character<br/>(Qwen3 fine-tuned via QLoRA)"]
+        POP --> AGT
+        AGT --> RES["Results cross-tabbed<br/>by demographic segment"]
+    end
+    subgraph CAL["CALIBRATE - anchored to reality"]
+        direction TB
         SMS["Weekly SMS-to-web<br/>micro-polls"] --> MRP{"MRP reweighting"}
         RES --> BT["Backtested against certified<br/>election results"]
     end
